@@ -36,7 +36,7 @@ pause() {
 [[ $EUID -eq 0 ]] && { err "root로 실행 금지"; exit 1; }
 [[ "$(hostname)" == gcp* ]] && { err "GCP 서버에서 실행 금지!"; exit 1; }
 
-sudo -v
+[ "${NONINTERACTIVE:-0}" = "1" ] || sudo -v
 ( while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null ) &
 SUDO_KEEPALIVE_PID=$!
 trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null || true' EXIT
@@ -44,14 +44,19 @@ trap 'kill $SUDO_KEEPALIVE_PID 2>/dev/null || true' EXIT
 # ─── [1] 한글 입력기 + talib 시스템 라이브러리 ───
 hdr "[1] 한글 입력기 + talib 시스템 라이브러리"
 sudo apt-get update -qq
-sudo apt-get install -y \
-    fcitx5 fcitx5-hangul fcitx5-config-qt \
-    libta-lib0 libta-lib-dev || \
-sudo apt-get install -y \
-    fcitx5 fcitx5-hangul fcitx5-config-qt \
-    libta-lib0t64 libta-lib0t64-dev   # Ubuntu 24.04 대체 패키지명
+sudo apt-get install -y fcitx5 fcitx5-hangul fcitx5-config-qt wget
 im-config -n fcitx5 || true
-log "한글 입력기 + talib 라이브러리 설치 완료"
+
+# ta-lib: Ubuntu 24.04 main repo에 없음 → 공식 .deb release 사용
+if ! dpkg -l ta-lib 2>/dev/null | grep -q "^ii"; then
+    TALIB_VER="0.6.4"
+    TALIB_DEB="/tmp/ta-lib_${TALIB_VER}_amd64.deb"
+    if [ ! -f "$TALIB_DEB" ]; then
+        wget -q -O "$TALIB_DEB" "https://github.com/ta-lib/ta-lib/releases/download/v${TALIB_VER}/ta-lib_${TALIB_VER}_amd64.deb" || warn "ta-lib .deb 다운로드 실패"
+    fi
+    [ -s "$TALIB_DEB" ] && sudo dpkg -i "$TALIB_DEB" 2>&1 | tail -5
+fi
+log "한글 입력기 + ta-lib 라이브러리 설치 완료"
 warn "주의: 한글 입력기 활성화는 재로그인 후 GUI Settings → Input Sources → Korean(Hangul) 추가 필요"
 
 # ─── [2] GitHub SSH 키 ───
