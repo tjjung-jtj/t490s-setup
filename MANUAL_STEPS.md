@@ -74,18 +74,28 @@ git config --global user.name "tjjung-jtj"
 ## 4. trading-bot clone + dev 브랜치 + venv
 
 ```bash
+# (a) talib 시스템 라이브러리 먼저 (이거 빠지면 pip install 실패)
+sudo apt install -y libta-lib0 libta-lib-dev
+
+# (b) clone + dev 브랜치
 mkdir -p ~/work && cd ~/work
 git clone git@github.com:tjjung-jtj/trading-bot.git
 cd trading-bot
+git checkout -b dev   # 노트북은 dev 브랜치 (GCP main과 분리)
 
-# 노트북은 dev 브랜치에서 작업 (GCP main과 분리)
-git checkout -b dev
-
-# Python 가상환경
+# (c) venv + 패키지
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+**주의 — talib 빌드 실패 시**:
+```bash
+# Ubuntu 24.04 패키지 이름이 다르면:
+sudo apt install -y libta-lib0t64 libta-lib0t64-dev
+# 그래도 안 되면 소스 빌드:
+# https://github.com/TA-Lib/ta-lib-python 참조
 ```
 
 ---
@@ -118,30 +128,43 @@ git rm --cached models/*.pkl 2>/dev/null
 git rm --cached models/rl_dqn.json 2>/dev/null
 git add .gitignore
 git commit -m "guard: machine-role isolation + ignore models"
-git push origin dev
+
+# dev 브랜치 첫 push은 upstream 등록 필요 (-u 빼면 거부됨)
+git push -u origin dev
 ```
 
 ---
 
 ## 6. 외장 SSD 마운트
 
-USB 외장 SSD 꽂고:
+USB 외장 SSD 꽂고 **파일시스템 타입부터 확인**:
 
 ```bash
-lsblk
-# 보통 /dev/sdb1 또는 /dev/sdc1. SIZE 보고 외장 식별.
+lsblk -f
+# /dev/sdb1 같은 줄의 FSTYPE 칼럼 확인:
+#   ext4  → 그대로 마운트
+#   ntfs / vfat / exfat → 데이터 백업 후 ext4 포맷 권장 (Linux 24/7 운영용)
+```
 
+**FSTYPE이 ext4면**:
+```bash
 sudo mkdir -p /mnt/data
 sudo mount /dev/sdX1 /mnt/data    # X를 실제 글자로
 sudo chown $USER:$USER /mnt/data
-
-# 마운트 확인
 df -h /mnt/data
+```
+
+**ext4 아니면 포맷** (⚠️ 안의 데이터 다 날아감 — 미리 백업):
+```bash
+# 마운트 안 된 상태에서:
+sudo umount /dev/sdX1 2>/dev/null
+sudo mkfs.ext4 -L data /dev/sdX1
+# 이후 위 ext4 마운트 단계 그대로
 ```
 
 영구 마운트 (`/etc/fstab` 등록):
 ```bash
-# UUID 확인
+# UUID + TYPE 확인
 sudo blkid /dev/sdX1
 # UUID="abc-123-..." TYPE="ext4" 출력 복사
 
@@ -156,25 +179,43 @@ UUID=abc-123-... /mnt/data ext4 defaults,nofail,x-systemd.automount 0 2
 
 ## 7. GCP → 노트북 rsync (학습 데이터 받기)
 
-GCP에 노트북 ssh 키 등록부터:
+⚠️ **이 단계는 노트북 단독으로 못 함**. GCP의 `~/.ssh/authorized_keys`에 노트북 공개키를 추가해야 하는데, 그 작업 자체가 GCP 접속 키(`gcp_trading_bot_ed`)를 가진 다른 머신에서 해야 함.
+
+**가장 빠른 경로 — 폰 Termius**:
+폰엔 이미 GCP 접속 키 들어있음 (build-server 셋업 시 옮겼다면).
+없으면 build-server에서 접속해서 진행.
+
+### 7-1. 노트북에서 공개키 복사
 ```bash
-# 노트북에서 공개키 출력
 cat ~/.ssh/id_ed25519.pub
+# 출력 한 줄 전체 복사 (ssh-ed25519 ... tjjung@gmail.com)
 ```
 
-build-server(또는 폰)에서 GCP에 접속해 노트북 키 추가:
+### 7-2. 폰 Termius (또는 build-server)에서 GCP 접속
 ```bash
+# build-server에서:
 ssh -i ~/.ssh/gcp_trading_bot_ed tjjung@34.169.93.135
-echo "<노트북 공개키 내용>" >> ~/.ssh/authorized_keys
+
+# 폰 Termius면 저장된 GCP 호스트 클릭
+
+# GCP 접속 후 (한 줄로 안전하게 추가):
+echo 'ssh-ed25519 AAAA... tjjung@gmail.com' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
 exit
 ```
 
-노트북에서 rsync:
+### 7-3. 노트북에서 rsync
 ```bash
 cd ~/work/trading-bot
+
+# 첫 접속 시 known_hosts 등록 (yes 입력)
+ssh tjjung@34.169.93.135 'echo OK'
+
 rsync -avz tjjung@34.169.93.135:~/trading-bot/state.json ./
 rsync -avz tjjung@34.169.93.135:~/trading-bot/learning.json ./
 rsync -avz tjjung@34.169.93.135:~/trading-bot/models/ ./models/
+rsync -avz tjjung@34.169.93.135:~/trading-bot/settings.json ./
+rsync -avz tjjung@34.169.93.135:~/trading-bot/strategy_weights.json ./ 2>/dev/null || true
 ```
 
 ---
