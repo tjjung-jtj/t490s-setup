@@ -27,7 +27,10 @@ log()   { echo -e "${GREEN}[+]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
 err()   { echo -e "${RED}[x]${NC} $*" >&2; }
 hdr()   { echo -e "\n${CYAN}━━━ $* ━━━${NC}"; }
-pause() { read -rp "$(echo -e ${YELLOW}[?]${NC} $1 [Enter to continue, Ctrl+C to abort]: )" _; }
+pause() {
+    [ "${SKIP_PAUSE:-0}" = "1" ] && { echo -e "${YELLOW}[?]${NC} $1 (SKIP_PAUSE=1, auto-skipped)"; return 0; }
+    read -rp "$(echo -e ${YELLOW}[?]${NC} $1 [Enter to continue, Ctrl+C to abort]: )" _
+}
 
 # 안전 — root 금지, gcp* 금지
 [[ $EUID -eq 0 ]] && { err "root로 실행 금지"; exit 1; }
@@ -193,7 +196,7 @@ lsblk -f
 echo
 echo -e "${YELLOW}외장 USB SSD 꽂혀 있으면 장치명을 입력하세요 (예: sdb1).${NC}"
 echo -e "${YELLOW}없거나 스킵하려면 그냥 Enter.${NC}"
-read -rp "장치명 (sdX1 형식, 또는 Enter로 스킵): " DEV
+read -rp "장치명 (sdX1 형식, 또는 Enter로 스킵): " DEV || DEV=""
 if [ -n "$DEV" ]; then
     DEVPATH="/dev/${DEV#/dev/}"
     if [ ! -b "$DEVPATH" ]; then
@@ -203,7 +206,7 @@ if [ -n "$DEV" ]; then
         echo "현재 FSTYPE: ${FSTYPE:-none}"
         if [ "$FSTYPE" != "ext4" ]; then
             warn "ext4 아님 — 데이터 백업 후 포맷해야 합니다."
-            read -rp "$DEVPATH 를 ext4로 포맷하고 마운트할까요? (안의 데이터 다 지워짐) [y/N]: " ans
+            read -rp "$DEVPATH 를 ext4로 포맷하고 마운트할까요? (안의 데이터 다 지워짐) [y/N]: " ans || ans=""
             if [[ "$ans" =~ ^[Yy]$ ]]; then
                 sudo umount "$DEVPATH" 2>/dev/null || true
                 sudo mkfs.ext4 -L data "$DEVPATH"
