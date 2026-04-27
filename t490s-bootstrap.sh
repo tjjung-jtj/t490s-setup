@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # T490s Ubuntu 24.04 자동 셋업 스크립트
 # 자동화 가능한 [2]~[7] 단계만 처리. 한글 입력기/Tailscale up/GitHub 키 등록은 수동.
+# 수동 7단계 디테일은 종료 후 ~/T490S_NEXT_STEPS.md 에 박아둠.
 
 set -euo pipefail
 
@@ -122,51 +123,38 @@ else
     log "PS1 이미 추가됨 (스킵)"
 fi
 
-# ─── 마무리 ───
+# ─── 마무리: 수동 단계 가이드를 파일로 박아두기 ───
 hdr "자동 셋업 완료"
-cat <<'EOF'
 
-수동으로 진행할 항목:
-─────────────────────
-1. sudo tailscale up  (브라우저 Google 로그인)
+NEXT_STEPS_FILE="$HOME/T490S_NEXT_STEPS.md"
+MANUAL_STEPS_URL="https://raw.githubusercontent.com/tjjung-jtj/t490s-setup/main/MANUAL_STEPS.md"
 
-2. 한글 입력기 (재로그인 필요):
-   sudo apt install -y fcitx5 fcitx5-hangul fcitx5-config-qt
-   im-config -n fcitx5
-   재로그인 → Settings → Region&Language → Korean(Hangul) 추가
+if curl -fsSL "$MANUAL_STEPS_URL" -o "$NEXT_STEPS_FILE"; then
+    log "수동 7단계 디테일 가이드 다운로드: $NEXT_STEPS_FILE"
+else
+    warn "MANUAL_STEPS.md 다운로드 실패 — 인터넷 확인 후 직접 받기:"
+    warn "  curl -fsSL $MANUAL_STEPS_URL -o $NEXT_STEPS_FILE"
+    warn "  또는 브라우저: https://github.com/tjjung-jtj/t490s-setup/blob/main/MANUAL_STEPS.md"
+fi
 
-3. GitHub SSH 키 생성 + 등록:
-   ssh-keygen -t ed25519 -C "tjjung@gmail.com"
-   cat ~/.ssh/id_ed25519.pub  # GitHub Settings → SSH keys
+echo ""
+cat <<EOF
+다음에 할 일 — 아래 중 편한 것으로 가이드 열기:
 
-4. trading-bot clone + dev 브랜치:
-   git clone git@github.com:tjjung-jtj/trading-bot.git
-   cd trading-bot && git checkout -b dev
-   python3 -m venv .venv && source .venv/bin/activate
-   pip install -r requirements.txt
+  ${CYAN}cat ~/T490S_NEXT_STEPS.md${NC}                                            (터미널)
+  ${CYAN}gedit ~/T490S_NEXT_STEPS.md${NC}                                          (GUI 편집기)
+  ${CYAN}firefox https://github.com/tjjung-jtj/t490s-setup/blob/main/MANUAL_STEPS.md${NC}  (브라우저)
 
-5. 머신 역할 가드 3단 (필수 - 사고 방지):
-   bot.py 상단:
-     import socket
-     assert socket.gethostname().startswith('gcp'), 'bot.py는 GCP 전용'
-   rl_train.py / backtest.py 상단:
-     import socket
-     assert not socket.gethostname().startswith('gcp'), 'GCP OOM, 노트북 전용'
-   .gitignore: models/*.pkl, models/rl_dqn.json, *.bak_*
+요약 (디테일은 위 가이드 파일):
+  1. sudo tailscale up
+  2. fcitx5-hangul (재로그인)
+  3. ssh-keygen + GitHub 등록
+  4. trading-bot clone (dev 브랜치 + venv)
+  5. 머신 가드 3단 (bot.py / rl_train.py / .gitignore)
+  6. 외장 SSD 마운트 (lsblk → mount → fstab)
+  7. GCP → 노트북 rsync (state/learning/models)
 
-6. 외장 SSD 마운트:
-   lsblk
-   sudo mkdir -p /mnt/data
-   sudo mount /dev/sdX1 /mnt/data
-   sudo chown $USER:$USER /mnt/data
-
-7. GCP → 노트북 rsync (state/learning/models)
-
-설치 검증:
-─────────
-- 새 터미널 열어서 PS1 초록인지 확인
-- sudo systemctl status ssh tlp tailscaled
-- tailscale ip -4
+검증: 새 터미널 → PS1 초록 → systemctl status ssh tlp tailscaled → tailscale ip -4
 EOF
 
-log "다음 단계: 새 터미널 열어서 'source ~/.bashrc' 또는 재로그인"
+log "$NEXT_STEPS_FILE 에 디테일 박아둠. 새 터미널 열거나 'source ~/.bashrc' 후 진행."

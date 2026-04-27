@@ -28,8 +28,17 @@ sudo 비번 한 번 입력하면 끝까지 자동 진행.
 - [6] TLP 설치 + 배터리 75-80% 한도 (수명 보호)
 - [7] `.bashrc`에 PS1 초록색 (T490s=초록, GCP=빨강, build-server=노랑)
 
-## 자동화 못 하는 것 (스크립트 끝나면 안내)
+## 자동화 못 하는 것 — [MANUAL_STEPS.md](MANUAL_STEPS.md) 참조
 
+bootstrap.sh 종료 시 [MANUAL_STEPS.md](MANUAL_STEPS.md)를 자동으로 다운로드해 `~/T490S_NEXT_STEPS.md`에 저장. 셋업 중 언제든 아래로 다시 볼 수 있음:
+
+```bash
+cat ~/T490S_NEXT_STEPS.md       # 터미널
+gedit ~/T490S_NEXT_STEPS.md     # GUI 편집기
+# 또는 브라우저로 GitHub 직접 접속
+```
+
+요약:
 1. `sudo tailscale up` (브라우저 Google 로그인)
 2. 한글 입력기 fcitx5-hangul (GUI Settings 패널 등록 + 재로그인)
 3. GitHub SSH 키 생성 + 브라우저로 등록
@@ -37,6 +46,8 @@ sudo 비번 한 번 입력하면 끝까지 자동 진행.
 5. 머신 역할 가드 3단 (bot.py / rl_train.py 상단 hostname assert + .gitignore)
 6. 외장 SSD 마운트 (`lsblk`로 장치명 확인 필요)
 7. GCP → 노트북 rsync (state.json, learning.json, models/)
+
+각 단계 디테일 명령어/스크린샷 안내는 [MANUAL_STEPS.md](MANUAL_STEPS.md) 안에.
 
 ## 안전장치
 
