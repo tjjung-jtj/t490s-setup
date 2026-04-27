@@ -239,15 +239,25 @@ cat <<EOF
 1. ${CYAN}fcitx5 한글 입력기 GUI 등록${NC} (재로그인 필요):
    재로그인 → Settings → Region & Language → Input Sources → + → Korean → Korean(Hangul)
 
-2. ${CYAN}GCP authorized_keys에 노트북 키 추가${NC} (rsync 위해):
+2. ${CYAN}GCP + OCI #2 authorized_keys에 노트북 키 추가${NC} (양쪽 rsync 위해):
    - 노트북 공개키:
 $(sed 's/^/     /' ~/.ssh/id_ed25519.pub)
-   - 폰 Termius 또는 build-server에서:
+
+   GCP 등록 (폰 Termius 또는 build-server에서):
      ssh -i ~/.ssh/gcp_trading_bot_ed tjjung@34.169.93.135
      echo '<위 공개키>' >> ~/.ssh/authorized_keys
+     exit
 
-3. ${CYAN}rsync-from-gcp.sh 실행${NC}:
-   bash ~/work/t490s-setup/rsync-from-gcp.sh
+   OCI #2 등록 (GCP 경유 또는 폰 Termius로 직접):
+     ssh -i ~/.ssh/gcp_trading_bot_ed tjjung@34.169.93.135
+     ssh -i ~/.ssh/oci_key ubuntu@152.69.212.45
+     echo '<위 공개키>' >> ~/.ssh/authorized_keys
+     exit; exit
+
+3. ${CYAN}rsync 양쪽 실행 (GCP + OCI #2 paper)${NC}:
+   bash ~/work/t490s-setup/rsync-from-gcp.sh    # GCP 일반 시장 + scalp
+   bash ~/work/t490s-setup/rsync-from-oci2.sh   # OCI #2 HR 시장 + scalp
+   → 양쪽 학습 데이터 모두 노트북에 누적
 
 상태 확인:
   - llm keys                          # llm 키 목록

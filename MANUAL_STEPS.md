@@ -177,45 +177,54 @@ UUID=abc-123-... /mnt/data ext4 defaults,nofail,x-systemd.automount 0 2
 
 ---
 
-## 7. GCP → 노트북 rsync (학습 데이터 받기)
+## 7. GCP + OCI #2 → 노트북 양쪽 rsync (학습 데이터 받기)
 
-⚠️ **이 단계는 노트북 단독으로 못 함**. GCP의 `~/.ssh/authorized_keys`에 노트북 공개키를 추가해야 하는데, 그 작업 자체가 GCP 접속 키(`gcp_trading_bot_ed`)를 가진 다른 머신에서 해야 함.
+⚠️ **두 머신 모두 노트북 공개키 등록 필요**. 트레이딩 봇이 GCP(일반 시장)와 OCI #2(HR 시장)에서 따로 paper 가동 중 → 노트북에서 양쪽 데이터 합산 학습.
 
-**가장 빠른 경로 — 폰 Termius**:
-폰엔 이미 GCP 접속 키 들어있음 (build-server 셋업 시 옮겼다면).
-없으면 build-server에서 접속해서 진행.
-
-### 7-1. 노트북에서 공개키 복사
+### 7-1. 노트북 공개키 복사
 ```bash
 cat ~/.ssh/id_ed25519.pub
-# 출력 한 줄 전체 복사 (ssh-ed25519 ... tjjung@gmail.com)
+# 출력 한 줄 전체 복사
 ```
 
-### 7-2. 폰 Termius (또는 build-server)에서 GCP 접속
+### 7-2. GCP authorized_keys 등록 (폰 Termius 또는 build-server)
 ```bash
-# build-server에서:
 ssh -i ~/.ssh/gcp_trading_bot_ed tjjung@34.169.93.135
-
-# 폰 Termius면 저장된 GCP 호스트 클릭
-
-# GCP 접속 후 (한 줄로 안전하게 추가):
-echo 'ssh-ed25519 AAAA... tjjung@gmail.com' >> ~/.ssh/authorized_keys
+echo '<위 노트북 공개키>' >> ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys
 exit
 ```
 
-### 7-3. 노트북에서 rsync
+### 7-3. OCI #2 authorized_keys 등록 (GCP 경유)
 ```bash
-cd ~/work/trading-bot
+# build-server 또는 폰에서 GCP 접속 후:
+ssh -i ~/.ssh/gcp_trading_bot_ed tjjung@34.169.93.135
+ssh -i ~/.ssh/oci_key ubuntu@152.69.212.45
+echo '<위 노트북 공개키>' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+exit
+exit
+```
 
-# 첫 접속 시 known_hosts 등록 (yes 입력)
-ssh tjjung@34.169.93.135 'echo OK'
+### 7-4. 노트북에서 양쪽 rsync (자동 스크립트)
+```bash
+# GCP 일반 시장 데이터 (~/work/trading-bot/)
+bash ~/work/t490s-setup/rsync-from-gcp.sh
 
-rsync -avz tjjung@34.169.93.135:~/trading-bot/state.json ./
-rsync -avz tjjung@34.169.93.135:~/trading-bot/learning.json ./
-rsync -avz tjjung@34.169.93.135:~/trading-bot/models/ ./models/
-rsync -avz tjjung@34.169.93.135:~/trading-bot/settings.json ./
-rsync -avz tjjung@34.169.93.135:~/trading-bot/strategy_weights.json ./ 2>/dev/null || true
+# OCI #2 HR 시장 데이터 (~/work/trading-bot/data-oci2/)
+bash ~/work/t490s-setup/rsync-from-oci2.sh
+```
+
+→ 양쪽 trade_records 합산 학습 가능. GCP=일반(crypto/us/kr), OCI #2=HR(_hr 시장).
+
+**합산 검증**:
+```bash
+python3 -c "
+import json
+gcp = json.load(open('$HOME/work/trading-bot/learning.json'))['trade_records']
+oci2 = json.load(open('$HOME/work/trading-bot/data-oci2/learning.json'))['trade_records']
+print(f'GCP: {len(gcp)} | OCI #2: {len(oci2)} | 합산: {len(gcp + oci2)}')
+"
 ```
 
 ---
