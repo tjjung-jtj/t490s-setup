@@ -78,8 +78,9 @@ echo
 echo -e "${YELLOW}이 키를 https://github.com/settings/keys 에 등록하세요 (이름: t490s).${NC}"
 pause "GitHub 등록 끝났나요?"
 
-# 검증
-if ssh -o BatchMode=yes -o ConnectTimeout=8 -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+# 검증 (pipefail 우회: ssh -T가 exit 1로 끝나는 게 정상이라 분리)
+SSH_AUTH_OUT=$(ssh -o BatchMode=yes -o ConnectTimeout=8 -T git@github.com 2>&1 || true)
+if echo "$SSH_AUTH_OUT" | grep -q "successfully authenticated"; then
     log "GitHub SSH 연결 OK"
 else
     err "GitHub SSH 연결 실패. 키 등록 확인 후 재실행."
